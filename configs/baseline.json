@@ -1,0 +1,16 @@
+{
+  "name": "baseline",
+  "description": "Competent fixed PPO recipe.",
+  "recipe": {
+    "actor_lr": 0.0003,
+    "critic_lr": 0.001,
+    "entropy_coef": 0.01,
+    "clip_coef": 0.2,
+    "update_epochs": 6,
+    "target_kl": 0.03,
+    "initial_actor_logstd": -0.7,
+    "collision_penalty": 5.0,
+    "success_bonus": 5.0,
+    "progress_scale": 3.0
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "aggressive",
+  "description": "Aggressive PPO recipe used in the reported comparison.",
+  "recipe": {
+    "actor_lr": 0.003,
+    "critic_lr": 0.003,
+    "entropy_coef": 0.08,
+    "clip_coef": 0.3,
+    "update_epochs": 8,
+    "target_kl": 0.1,
+    "initial_actor_logstd": -0.7,
+    "collision_penalty": 1.0,
+    "success_bonus": 10.0,
+    "progress_scale": 5.0
+  }
+}

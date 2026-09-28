@@ -1,0 +1,40 @@
+
+You are a JSON formatter. An expert RL manager has already made the substantive decision. Your job is only to convert that decision into valid JSON.
+
+Do not re-diagnose the run.
+Do not choose a different substantive action.
+Do not add reasoning that is not present in the expert decision.
+Use only action names and policy values present in available_actions.
+If the expert decision does not unambiguously specify a valid action and exact policy values, return no_action with an empty policy object. State in reason that the expert decision was ambiguous. Do not attempt to resolve the ambiguity yourself.
+
+If mechanical validation feedback is provided below, correct only that formatting or schema error while preserving the expert decision. If the expert decision cannot be represented validly after applying the feedback, return no_action as described above.
+
+Expert decision:
+Example expert analysis used only to render the Stage 2 formatter prompt.
+
+Selected action name: no_action
+Exact policy object: {}
+Reason: This is a prompt-export example, not a live training decision.
+Expected next-interval outcome: Training continues with the current recipe.
+Success criteria: The next diagnostic evaluation supplies another comparable observation.
+Metrics to watch next: deterministic and stochastic safe success and collision rate
+
+Available actions:
+{"actor_lr": {"actor_lr_multiplier": [0.25, 0.5, 0.75, 0.9]}, "clip_range": {"clip_coef": [0.03, 0.05, 0.08, 0.12, 0.16, 0.2, 0.25]}, "collision_penalty": {"collision_penalty": [2.0, 5.0, 10.0, 20.0, 35.0, 50.0]}, "combined_policy": {"two_or_three_of": {"actor_lr_multiplier": [0.25, 0.5, 0.75, 0.9], "clip_coef": [0.03, 0.05, 0.08, 0.12, 0.16, 0.2, 0.25], "collision_penalty": [2.0, 5.0, 10.0, 20.0, 35.0, 50.0], "critic_lr_multiplier": [0.25, 0.5, 0.75, 0.9], "entropy_coef_multiplier": [0.25, 0.5, 0.75, 0.9, 1.1, 1.25], "progress_scale": [1.0, 2.0, 3.0], "success_bonus": [2.5, 3.0, 5.0, 8.0], "target_kl": [0.003, 0.005, 0.01, 0.02, 0.03, 0.05, 0.08], "update_epochs": [1, 2, 3, 4, 6]}}, "critic_lr": {"critic_lr_multiplier": [0.25, 0.5, 0.75, 0.9]}, "entropy": {"entropy_coef_multiplier": [0.25, 0.5, 0.75, 0.9, 1.1, 1.25]}, "no_action": {}, "ppo_epochs": {"update_epochs": [1, 2, 3, 4, 6]}, "progress_scale": {"progress_scale": [1.0, 2.0, 3.0]}, "success_bonus": {"success_bonus": [2.5, 3.0, 5.0, 8.0]}, "target_kl": {"target_kl": [0.003, 0.005, 0.01, 0.02, 0.03, 0.05, 0.08]}}
+
+Mechanical validation feedback from the previous formatting attempt, if any:
+none
+
+Return only valid JSON matching this exact schema:
+{
+  "selected_action": {
+    "name": "one action name from available_actions",
+    "policy": {},
+    "expected_outcome": "copied from the expert decision",
+    "success_criteria": "copied from the expert decision"
+  },
+  "reason": "copied from the expert decision",
+  "watch_next": [
+    "metrics explicitly mentioned by the expert decision"
+  ]
+}
