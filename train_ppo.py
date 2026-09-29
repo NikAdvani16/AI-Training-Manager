@@ -171,7 +171,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--async_manager_lead_updates", type=int, default=5)
     # A decision that has not arrived this many updates after its telemetry snapshot is
     # discarded as stale. Training never pauses to wait for the manager.
-    parser.add_argument("--async_manager_stale_updates", type=int, default=5)
+    parser.add_argument("--async_manager_stale_updates", type=int, default=10)
     parser.add_argument("--rollback_min_drop", type=float, default=0.10)
     parser.add_argument("--rollback_patience", type=int, default=2)
     parser.add_argument("--rollback_cooldown_intervals", type=int, default=2)

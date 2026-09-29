@@ -214,12 +214,12 @@ Manager runs use two calls:
    to re-diagnose the run.
 
 Calls are asynchronous. For a 20-update intervention interval, requests are
-launched five updates early at updates `15, 35, 55, ...`. A decision that
-arrives within five updates of its request is verified against the current
-trainer state and applied at the intended boundary. Training never pauses for
-the manager: a decision that has not arrived within five updates is discarded as
-stale, logged as `ASYNC_MANAGER_STALE`, and the current recipe continues
-unchanged.
+launched five updates early at updates `15, 35, 55, ...`. A decision is
+verified against the current trainer state and applied five updates after its
+request, or as soon as it arrives after that. Training never pauses for the
+manager: a decision that has not arrived within 10 updates of its request is
+discarded as stale, logged as `ASYNC_MANAGER_STALE`, and the current recipe
+continues unchanged.
 
 Every successful manager record stores the exact Stage 1 prompt, Stage 1 output,
 each Stage 2 prompt and raw response, validation errors, selected action, and

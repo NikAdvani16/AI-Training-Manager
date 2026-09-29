@@ -36,7 +36,7 @@
     "formatter_temperature": 0.1,
     "async": true,
     "async_lead_updates": 5,
-    "async_stale_updates": 5,
+    "async_stale_updates": 10,
     "rollback_min_drop": 0.1,
     "rollback_patience": 2,
     "rollback_cooldown_intervals": 2

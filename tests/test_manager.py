@@ -164,14 +164,14 @@ class FormatterPromptTests(unittest.TestCase):
         context["run_plan"] = {
             "manager_application_mode": "async",
             "async_lead_updates": 5,
-            "async_stale_updates": 5,
+            "async_stale_updates": 10,
         }
 
         prompt = build_analysis_prompt(context)
 
         self.assertIn("never waits for your response", prompt)
         self.assertIn("about 5 PPO updates", prompt)
-        self.assertIn("within 5 updates of the snapshot", prompt)
+        self.assertIn("within 10 updates of the snapshot", prompt)
         self.assertIn("discarded as stale", prompt)
         self.assertNotIn("pause", prompt)
 
