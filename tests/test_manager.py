@@ -164,16 +164,16 @@ class FormatterPromptTests(unittest.TestCase):
         context["run_plan"] = {
             "manager_application_mode": "async",
             "async_lead_updates": 5,
-            "async_max_wait_updates": 10,
-            "async_wait_timeout_seconds": 600,
+            "async_stale_updates": 5,
         }
 
         prompt = build_analysis_prompt(context)
 
-        self.assertIn("Training continues while you reason", prompt)
+        self.assertIn("never waits for your response", prompt)
         self.assertIn("about 5 PPO updates", prompt)
-        self.assertIn("by 10 updates after the snapshot", prompt)
-        self.assertIn("at most 600 seconds", prompt)
+        self.assertIn("within 5 updates of the snapshot", prompt)
+        self.assertIn("discarded as stale", prompt)
+        self.assertNotIn("pause", prompt)
 
     def test_action_space_is_described_without_judging_values(self) -> None:
         prompt = build_analysis_prompt(manager_context())

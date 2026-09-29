@@ -214,10 +214,12 @@ Manager runs use two calls:
    to re-diagnose the run.
 
 Calls are asynchronous. For a 20-update intervention interval, requests are
-launched five updates early at updates `15, 35, 55, ...`. Training continues
-while the calls run. If no result is available five updates after the telemetry
-snapshot, training pauses for at most 600 seconds rather than applying a stale
-decision later.
+launched five updates early at updates `15, 35, 55, ...`. A decision that
+arrives within five updates of its request is verified against the current
+trainer state and applied at the intended boundary. Training never pauses for
+the manager: a decision that has not arrived within five updates is discarded as
+stale, logged as `ASYNC_MANAGER_STALE`, and the current recipe continues
+unchanged.
 
 Every successful manager record stores the exact Stage 1 prompt, Stage 1 output,
 each Stage 2 prompt and raw response, validation errors, selected action, and
@@ -305,8 +307,7 @@ Each run directory contains:
 - `controller_decisions.jsonl`: manager requests, prompts, outputs, actions,
   and outcomes for manager runs;
 - `best.pt` and `final.pt`: PyTorch checkpoints;
-- `final_heldout_eval.json` and `final_heldout_eval_by_difficulty.csv`;
-- `manager_wait_summary.json` for asynchronous manager runs.
+- `final_heldout_eval.json` and `final_heldout_eval_by_difficulty.csv`.
 
 Generate per-run plots with:
 

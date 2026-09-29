@@ -6,10 +6,10 @@ import csv
 import json
 import math
 import random
+import threading
 import time
 from collections import deque
-from concurrent.futures import Future, ThreadPoolExecutor
-from concurrent.futures import TimeoutError as FuturesTimeoutError
+from concurrent.futures import Future
 from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
@@ -169,16 +169,30 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--llm_formatter_model", type=str, default=DEFAULT_FORMATTER_MODEL)
     parser.add_argument("--llm_formatter_temperature", type=float, default=DEFAULT_FORMATTER_TEMPERATURE)
     parser.add_argument("--async_manager_lead_updates", type=int, default=5)
-    # After this many updates without a decision, training pauses and blocks on the
-    # manager call instead of discarding it, so a response is never wasted.
-    parser.add_argument("--async_manager_max_wait_updates", type=int, default=5)
-    # Safety valve: if the blocking wait exceeds this, the call is abandoned as stale
-    # so a hung API cannot stall training indefinitely.
-    parser.add_argument("--async_manager_wait_timeout_seconds", type=float, default=600.0)
+    # A decision that has not arrived this many updates after its telemetry snapshot is
+    # discarded as stale. Training never pauses to wait for the manager.
+    parser.add_argument("--async_manager_stale_updates", type=int, default=5)
     parser.add_argument("--rollback_min_drop", type=float, default=0.10)
     parser.add_argument("--rollback_patience", type=int, default=2)
     parser.add_argument("--rollback_cooldown_intervals", type=int, default=2)
     return parser.parse_args()
+
+
+def submit_in_background(fn: Any, *args: Any) -> Future[Any]:
+    # Daemon thread, so a discarded call that is still running never delays the next
+    # request or process exit.
+    future: Future[Any] = Future()
+
+    def run() -> None:
+        if not future.set_running_or_notify_cancel():
+            return
+        try:
+            future.set_result(fn(*args))
+        except BaseException as exc:  # noqa: BLE001 - surfaced through the future.
+            future.set_exception(exc)
+
+    threading.Thread(target=run, daemon=True).start()
+    return future
 
 
 def append_jsonl(path: Path, payload: dict[str, Any]) -> None:
@@ -1007,8 +1021,6 @@ def main() -> None:
         "rollback_cooldown_active",
         "rollback_gate_passed",
         "manager_action",
-        "manager_wait_seconds",
-        "manager_wait_seconds_total",
     ]
     write_metrics_header(metrics_path, fieldnames)
 
@@ -1046,14 +1058,10 @@ def main() -> None:
         "eval_episodes_per_split": args.eval_episodes,
         "manager_application_mode": "async",
         "async_lead_updates": args.async_manager_lead_updates,
-        "async_max_wait_updates": args.async_manager_max_wait_updates,
-        "async_wait_timeout_seconds": args.async_manager_wait_timeout_seconds,
+        "async_stale_updates": args.async_manager_stale_updates,
     }
-    manager_executor = ThreadPoolExecutor(max_workers=1) if manager is not None else None
     pending_manager_call: dict[str, Any] | None = None
     completed_update = 0
-    manager_wait_seconds_total = 0.0
-    manager_wait_events = 0
 
     def apply_manager_decision(
         *,
@@ -1347,7 +1355,6 @@ def main() -> None:
         append_jsonl(updates_path, update_payload)
 
         async_action_label_for_row: str | None = None
-        manager_wait_seconds = 0.0
         ready_async_call: dict[str, Any] | None = None
         if pending_manager_call is not None:
             request_update = int(pending_manager_call["request_update"])
@@ -1357,62 +1364,30 @@ def main() -> None:
             if update >= target_update and future.done():
                 ready_async_call = pending_manager_call
                 pending_manager_call = None
-            elif age >= args.async_manager_max_wait_updates:
-                # The decision has taken too long to arrive on its own. Rather than
-                # discard work the manager has already done, stop training here and
-                # block until it lands, so no manager response is ever wasted.
-                wait_started = time.time()
-                try:
-                    future.result(timeout=args.async_manager_wait_timeout_seconds)
-                    timed_out = False
-                except FuturesTimeoutError:
-                    timed_out = True
-                except Exception:  # noqa: BLE001 - surfaced through the decision log below.
-                    timed_out = False
-                manager_wait_seconds = time.time() - wait_started
-                manager_wait_seconds_total += manager_wait_seconds
-                manager_wait_events += 1
-                if timed_out:
-                    append_jsonl(
-                        decisions_path,
-                        {
-                            "update": update,
-                            "global_step": global_step,
-                            "action": "ASYNC_MANAGER_STALE",
-                            "application_mode": "async",
-                            "request_update": request_update,
-                            "target_update": target_update,
-                            "age_updates": age,
-                            "done": future.done(),
-                            "waited_seconds": manager_wait_seconds,
-                            "wait_timeout_seconds": args.async_manager_wait_timeout_seconds,
-                            "recipe_after": asdict(recipe),
-                        },
-                    )
-                    pending_manager_call = None
-                    async_action_label_for_row = "ASYNC_MANAGER_STALE"
-                else:
-                    append_jsonl(
-                        decisions_path,
-                        {
-                            "update": update,
-                            "global_step": global_step,
-                            "action": "ASYNC_MANAGER_WAITED",
-                            "application_mode": "async",
-                            "request_update": request_update,
-                            "target_update": target_update,
-                            "age_updates": age,
-                            "waited_seconds": manager_wait_seconds,
-                            "recipe_after": asdict(recipe),
-                        },
-                    )
-                    print(
-                        f"update={update:04d} step={global_step:07d} "
-                        f"async_manager_wait={manager_wait_seconds:.1f}s age_updates={age}",
-                        flush=True,
-                    )
-                    ready_async_call = pending_manager_call
-                    pending_manager_call = None
+            elif age >= args.async_manager_stale_updates:
+                # The decision did not arrive in time. Training does not wait for it;
+                # it is discarded so a stale decision is never applied later.
+                append_jsonl(
+                    decisions_path,
+                    {
+                        "update": update,
+                        "global_step": global_step,
+                        "action": "ASYNC_MANAGER_STALE",
+                        "application_mode": "async",
+                        "request_update": request_update,
+                        "target_update": target_update,
+                        "age_updates": age,
+                        "stale_updates": args.async_manager_stale_updates,
+                        "recipe_after": asdict(recipe),
+                    },
+                )
+                print(
+                    f"update={update:04d} step={global_step:07d} "
+                    f"async_manager_stale age_updates={age}",
+                    flush=True,
+                )
+                pending_manager_call = None
+                async_action_label_for_row = "ASYNC_MANAGER_STALE"
 
         manager_request_offset = args.eval_interval - args.async_manager_lead_updates
         is_async_request_update = (
@@ -1443,8 +1418,6 @@ def main() -> None:
                 "post_manager_eval_collision_mean": "",
                 "post_manager_stochastic_eval_safe_success_mean": "",
                 "manager_action": async_action_label_for_row or "KEEP",
-                "manager_wait_seconds": manager_wait_seconds,
-                "manager_wait_seconds_total": manager_wait_seconds_total,
             }
             update_row_from_evals(row, evals, stochastic_evals)
             current_checkpoint_key = checkpoint_selection_key(row)
@@ -1552,9 +1525,9 @@ def main() -> None:
                     rollback_gate=rollback_gate,
                     run_plan=run_plan,
                 )
-                if pending_manager_call is None and manager_executor is not None:
+                if pending_manager_call is None:
                     pending_manager_call = {
-                        "future": manager_executor.submit(manager.decide, context),
+                        "future": submit_in_background(manager.decide, context),
                         "context": context,
                         "evals": evals,
                         "stochastic_evals": stochastic_evals,
@@ -1607,30 +1580,6 @@ def main() -> None:
             },
         )
 
-    if manager is not None:
-        total_elapsed = time.time() - start_time
-        wait_summary = {
-            "manager_wait_seconds_total": manager_wait_seconds_total,
-            "manager_wait_events": manager_wait_events,
-            "mean_manager_wait_seconds": (
-                manager_wait_seconds_total / manager_wait_events if manager_wait_events else 0.0
-            ),
-            "total_elapsed_seconds": total_elapsed,
-            "fraction_of_run_spent_waiting_on_manager": (
-                manager_wait_seconds_total / total_elapsed if total_elapsed > 0 else 0.0
-            ),
-            "max_wait_updates": args.async_manager_max_wait_updates,
-            "wait_timeout_seconds": args.async_manager_wait_timeout_seconds,
-        }
-        (out_dir / "manager_wait_summary.json").write_text(json.dumps(wait_summary, indent=2) + "\n")
-        print(
-            f"manager wait: {manager_wait_seconds_total:.1f}s across {manager_wait_events} pause(s) "
-            f"({100.0 * wait_summary['fraction_of_run_spent_waiting_on_manager']:.1f}% of wall clock)",
-            flush=True,
-        )
-
-    if manager_executor is not None:
-        manager_executor.shutdown(wait=False, cancel_futures=True)
 
     torch.save(
         {

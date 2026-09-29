@@ -60,8 +60,7 @@ def example_context(condition_name: str, seed: int) -> dict:
             "eval_episodes_per_split": common["protocol"]["eval_episodes"],
             "manager_application_mode": "async",
             "async_lead_updates": common["manager"]["async_lead_updates"],
-            "async_max_wait_updates": common["manager"]["async_max_wait_updates"],
-            "async_wait_timeout_seconds": common["manager"]["async_wait_timeout_seconds"],
+            "async_stale_updates": common["manager"]["async_stale_updates"],
             "seed": seed,
         },
     }

@@ -1147,8 +1147,7 @@ def build_manager_observation(context: dict[str, Any]) -> dict[str, Any]:
             "eval_episodes_per_split": run_plan.get("eval_episodes_per_split"),
             "manager_application_mode": run_plan.get("manager_application_mode"),
             "async_lead_updates": run_plan.get("async_lead_updates"),
-            "async_max_wait_updates": run_plan.get("async_max_wait_updates"),
-            "async_wait_timeout_seconds": run_plan.get("async_wait_timeout_seconds"),
+            "async_stale_updates": run_plan.get("async_stale_updates"),
         },
         "current_performance": {
             "train": {
@@ -1229,15 +1228,14 @@ def build_analysis_prompt(context: dict[str, Any]) -> str:
     )
 
     lead = _fmt_int(progress.get("async_lead_updates"))
-    max_wait = _fmt_int(progress.get("async_max_wait_updates"))
-    timeout = _fmt_g(progress.get("async_wait_timeout_seconds"), 4)
+    stale = _fmt_int(progress.get("async_stale_updates"))
     timing = (
-        "Training continues while you reason. Your recommendation is intended to be "
-        f"applied about {lead} PPO updates after this telemetry snapshot. If no response "
-        f"has arrived by {max_wait} updates after the snapshot, training pauses and waits "
-        f"for at most {timeout} seconds before abandoning the call. Judge the supplied "
-        "snapshot, but choose an intervention whose rationale remains sensible over that "
-        "possible delay."
+        "Training continues while you reason and never waits for your response. Your "
+        f"recommendation is intended to be applied about {lead} PPO updates after this "
+        "telemetry snapshot. If it has not arrived within "
+        f"{stale} updates of the snapshot, it is discarded as stale and the current recipe "
+        "continues unchanged. Judge the supplied snapshot, but choose an intervention "
+        "whose rationale remains sensible over that possible delay."
     )
 
     sections = [
