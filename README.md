@@ -1,5 +1,10 @@
 # Bounded AI Training Manager for Randomized Reacher PPO
 
+Anjali Rao and Nikhil Kamalkumar Advani
+
+Code for the paper [AI Training Manager: Bounded Closed-Loop Control of Adaptive
+Training Recipes](https://arxiv.org/abs/2606.29871) (arXiv:2606.29871).
+
 This repository contains the released reinforcement-learning environment,
 training code, two-stage AI training manager, exact experiment configurations,
 action bounds, response verifier, random seeds, and reproduction instructions
@@ -86,6 +91,7 @@ definition of collision, safe success, termination, or the scene distribution.
   rollback tests.
 - `verify_release.py`: one-command release/configuration verification.
 - `plot.py`: per-run diagnostic plots and sampled task geometry.
+- `LICENSE`: MIT license.
 
 ## Installation
 
@@ -134,7 +140,7 @@ those files directly; the table above is explanatory, not a second config.
 
 ## Reproducing Runs
 
-The results reported in the paper use seeds `40`, `41`, and `42`. These are
+The results reported in the [paper](https://arxiv.org/abs/2606.29871) use seeds `40`, `41`, and `42`. These are
 recorded for exact reproduction; `--seed` accepts any non-negative integer, so
 users may run additional seeds or their own seed sets.
 
@@ -158,6 +164,10 @@ export OPENAI_API_KEY='your-key'
 python run_experiment.py --condition conservative --seed 40 --manager --device auto
 python run_experiment.py --condition aggressive --seed 40 --manager --device auto
 ```
+
+Manager runs make paid OpenAI API calls. A 500-update run requests about 25
+decisions, each consisting of one `gpt-5.4` call and one or two `gpt-5.4-mini`
+calls.
 
 Use seeds `41` and `42` to reproduce the other reported runs, or provide any
 other non-negative integer seed for additional experiments. Runs are
@@ -304,12 +314,22 @@ Generate per-run plots with:
 python plot.py --run_dir runs/aggressive_manager_seed40
 ```
 
-## Paper Link
+## Citation
 
-After publishing this folder as its own repository, replace `<REPOSITORY_URL>`
-in the paper with the permanent repository URL, for example:
+If you use this code, please cite:
 
-> Code, exact prompts, configurations, and reproduction instructions are
-> available at `<REPOSITORY_URL>`.
+```bibtex
+@misc{rao2026aitrainingmanagerbounded,
+      title={AI Training Manager: Bounded Closed-Loop Control of Adaptive Training Recipes},
+      author={Anjali Rao and Nikhil Kamalkumar Advani},
+      year={2026},
+      eprint={2606.29871},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2606.29871},
+}
+```
 
-Do not commit an OpenAI API key.
+## License
+
+This project is released under the MIT License. See [`LICENSE`](LICENSE).
